@@ -30,7 +30,7 @@ jobs:
           TORCH_CUDA_ARCH_LIST: "8.0"
         run: |
           pip install build wheel ninja numpy cmake setuptools setuptools_scm
-          sed -i '/license = "Apache-2.0"/d' pyproject.toml
+          sed -i '/^license/d' pyproject.toml
           python setup.py bdist_wheel
           
       - name: Upload Artifact
