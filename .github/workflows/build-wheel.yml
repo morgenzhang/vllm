@@ -29,7 +29,8 @@ jobs:
         env:
           TORCH_CUDA_ARCH_LIST: "8.0"
         run: |
-          pip install build wheel ninja setuptools setuptools_scm numpy cmake
+          pip install build wheel ninja numpy cmake
+          pip install "setuptools<69.0.0" "setuptools_scm<8.0.0"
           python setup.py bdist_wheel
           
       - name: Upload Artifact
