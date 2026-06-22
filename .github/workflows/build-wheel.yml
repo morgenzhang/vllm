@@ -9,27 +9,31 @@ jobs:
         run: |
           git clone --depth 1 --branch fix-38006 https://github.com/haosdent/vllm.git .
           
-      - name: Set up Python
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           
-      - name: Install CUDA Toolkit
+      - name: Install CUDA Toolkit 12.1
         run: |
-          wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+          wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
           sudo dpkg -i cuda-keyring_1.1-1_all.deb
           sudo apt-get update
           sudo apt-get install -y cuda-toolkit-12-9
           
-      - name: Build Wheel
+      - name: Install PyTorch for Compilation
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cu129
+          
+      - name: Build Wheel for SM80 (A100/A800)
         env:
           TORCH_CUDA_ARCH_LIST: "8.0"
         run: |
-          pip install build wheel
+          pip install build wheel ninja
           python setup.py bdist_wheel
           
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vllm-wheel
+          name: vllm-wheel-py312-cu129
           path: dist/*.whl
