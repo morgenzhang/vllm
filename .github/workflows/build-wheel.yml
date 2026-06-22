@@ -1,4 +1,4 @@
-name: Build vLLM Wheel
+name: Build vLLM Wheel for Ubuntu 24.04
 on: [workflow_dispatch]
 
 jobs:
@@ -14,7 +14,7 @@ jobs:
         with:
           python-version: '3.12'
           
-      - name: Install CUDA Toolkit 12.1
+      - name: Install CUDA Toolkit 12.9
         run: |
           wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
           sudo dpkg -i cuda-keyring_1.1-1_all.deb
@@ -29,7 +29,7 @@ jobs:
         env:
           TORCH_CUDA_ARCH_LIST: "8.0"
         run: |
-          pip install build wheel ninja
+          pip install build wheel ninja setuptools setuptools_scm numpy cmake
           python setup.py bdist_wheel
           
       - name: Upload Artifact
