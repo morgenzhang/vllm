@@ -1,0 +1,67 @@
+name: Build vLLM SM80 Wheel
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-wheel:
+    name: CUDA 13.0 / Torch 2.11 / SM80
+    runs-on: ubuntu-24.04
+    container:
+      image: nvidia/cuda:13.0.0-devel-ubuntu24.04
+    env:
+      VLLM_TARGET_DEVICE: cuda
+      TORCH_CUDA_ARCH_LIST: "8.0"
+      MAX_JOBS: "2"
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            build-essential ca-certificates git python3.12 python3.12-venv \
+            python3-pip rustc cargo
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Create build environment
+        run: |
+          python3.12 -m venv .venv
+          . .venv/bin/activate
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install \
+            --index-url https://download.pytorch.org/whl/cu130 \
+            --extra-index-url https://pypi.org/simple \
+            torch==2.11.0 triton==3.6.0
+          python -c "import torch, triton; print(torch.__version__); print(torch.version.cuda); print(triton.__version__)"
+          python -m pip install \
+            cmake ninja packaging setuptools-scm setuptools-rust jinja2 regex build protobuf
+
+      - name: Build vLLM wheel for A100
+        run: |
+          . .venv/bin/activate
+          python use_existing_torch.py
+          python -m build --wheel --no-isolation --outdir dist
+          python -m zipfile -t dist/*.whl
+          sha256sum dist/*.whl > dist/SHA256SUMS
+          {
+            echo "vllm_pr_47629_head=bbe2ab4d6cc01a634640d0b502ac67055d114219"
+            echo "vllm_pr_47644_head=79dba7a8d83d69e0ce1b128573a1b61768eeef4e"
+            echo "torch=2.11.0"
+            echo "torch_cuda=13.0"
+            echo "triton=3.6.0"
+            echo "torch_cuda_arch_list=8.0"
+          } > dist/BUILD_INFO.txt
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vllm-sm80-cu130-torch211
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
