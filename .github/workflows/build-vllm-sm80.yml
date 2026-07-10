@@ -20,7 +20,7 @@ jobs:
       TORCH_CUDA_ARCH_LIST: "8.0"
       MAX_JOBS: "2"
       PYTHONUNBUFFERED: "1"
-      SETUPTOOLS_SCM_PRETEND_VERSION_FOR_VLLM: "0.0.0.dev0+pr47629.47644"
+      VLLM_VERSION_OVERRIDE: "0.0.0.dev0+pr47629.47644"
 
     steps:
       - uses: actions/checkout@v4
