@@ -2,6 +2,9 @@ name: Build vLLM SM80 Wheel
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - glm52-sm80-pp-fix
 
 permissions:
   contents: read
