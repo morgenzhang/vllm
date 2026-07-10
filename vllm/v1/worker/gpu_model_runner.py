@@ -10,12 +10,14 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from copy import copy, deepcopy
-from dataclasses import dataclass, replace
-from functools import reduce
-from typing import TYPE_CHECKING, Any, NamedTuple, TypeAlias, cast
-
-import numpy as np
-import torch
+        if self.use_async_scheduling:
+            self.async_output_copy_stream = torch.cuda.Stream()
+        # cuda event to synchronize use of reused CPU tensors between steps
+        # whenever steps overlap (async scheduling, or the PP batch queue):
+        # input prep for step N+1 runs while step N's non_blocking H2D copies
+        # from the same pinned buffers may still be pending.
+        self.prepare_inputs_event: torch.Event | None = None
+        if self.vllm_config.max_concurrent_batches > 1:import torch
 import torch.distributed
 import torch.nn as nn
 from tqdm import tqdm
