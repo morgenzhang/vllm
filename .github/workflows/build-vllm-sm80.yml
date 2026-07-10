@@ -17,6 +17,7 @@ jobs:
       TORCH_CUDA_ARCH_LIST: "8.0"
       MAX_JOBS: "2"
       PYTHONUNBUFFERED: "1"
+      SETUPTOOLS_SCM_PRETEND_VERSION_FOR_VLLM: "0.0.0.dev0+pr47629.47644"
 
     steps:
       - uses: actions/checkout@v4
@@ -24,9 +25,7 @@ jobs:
       - name: Install system dependencies
         run: |
           apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y \
-            build-essential ca-certificates git python3.12 python3.12-venv \
-            python3-pip rustc cargo
+          DEBIAN_FRONTEND=noninteractive apt-get install -y             build-essential ca-certificates git python3.12 python3.12-venv             python3-pip rustc cargo
           rm -rf /var/lib/apt/lists/*
 
       - name: Create build environment
@@ -34,13 +33,9 @@ jobs:
           python3.12 -m venv .venv
           . .venv/bin/activate
           python -m pip install --upgrade pip setuptools wheel
-          python -m pip install \
-            --index-url https://download.pytorch.org/whl/cu130 \
-            --extra-index-url https://pypi.org/simple \
-            torch==2.11.0 triton==3.6.0
+          python -m pip install             --index-url https://download.pytorch.org/whl/cu130             --extra-index-url https://pypi.org/simple             torch==2.11.0 triton==3.6.0
           python -c "import torch, triton; print(torch.__version__); print(torch.version.cuda); print(triton.__version__)"
-          python -m pip install \
-            cmake ninja packaging setuptools-scm setuptools-rust jinja2 regex build protobuf
+          python -m pip install             cmake ninja packaging setuptools-scm setuptools-rust jinja2 regex build protobuf
 
       - name: Build vLLM wheel for A100
         run: |
