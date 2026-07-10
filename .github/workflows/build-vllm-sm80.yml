@@ -35,7 +35,7 @@ jobs:
         run: |
           python3.12 -m venv .venv
           . .venv/bin/activate
-          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install --upgrade pip wheel "setuptools>=77.0.3,<81.0.0"
           python -m pip install             --index-url https://download.pytorch.org/whl/cu130             --extra-index-url https://pypi.org/simple             torch==2.11.0 triton==3.6.0
           python -c "import torch, triton; print(torch.__version__); print(torch.version.cuda); print(triton.__version__)"
           python -m pip install             cmake ninja packaging setuptools-scm setuptools-rust jinja2 regex build protobuf
