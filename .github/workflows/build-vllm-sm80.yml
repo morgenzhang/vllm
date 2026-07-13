@@ -13,43 +13,164 @@ jobs:
   build-wheel:
     name: CUDA 13.0 / Torch 2.11 / SM80
     runs-on: ubuntu-24.04
+
     container:
       image: nvidia/cuda:13.0.0-devel-ubuntu24.04
+
     env:
       VLLM_TARGET_DEVICE: cuda
       TORCH_CUDA_ARCH_LIST: "8.0"
       MAX_JOBS: "2"
       PYTHONUNBUFFERED: "1"
-      VLLM_VERSION_OVERRIDE: "0.0.0.dev0+pr47629.47644"
+      VLLM_VERSION_OVERRIDE: "0.0.0.dev1+pr47629.47644.fixed"
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install system dependencies
         run: |
+          set -euxo pipefail
+
           apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y             build-essential ca-certificates git python3.12 python3.12-venv             python3-pip rustc cargo
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            build-essential \
+            ca-certificates \
+            git \
+            python3.12 \
+            python3.12-venv \
+            python3-pip \
+            rustc \
+            cargo
+
           rm -rf /var/lib/apt/lists/*
+
+      - name: Validate Python sources
+        run: |
+          set -euxo pipefail
+
+          python3.12 -m py_compile \
+            vllm/v1/worker/gpu_model_runner.py
+
+          python3.12 -m compileall -q vllm
+
+          python3.12 - <<'PY'
+          from pathlib import Path
+
+          p = Path("vllm/v1/worker/gpu_model_runner.py")
+          src = p.read_text()
+          compile(src, str(p), "exec")
+
+          head = "\n".join(src.splitlines()[:100])
+
+          assert "self.use_async_scheduling" not in head
+          assert "self.vllm_config.max_concurrent_batches > 1" in src
+          assert src.count(
+              "self.vllm_config.max_concurrent_batches > 1"
+          ) == 1
+
+          assert "from dataclasses import dataclass, replace" in src
+          assert "from functools import reduce" in src
+          assert "import numpy as np" in src
+          assert "\nimport torch\n" in src
+
+          all_sources = "\n".join(
+              f.read_text(errors="ignore")
+              for f in Path("vllm").rglob("*.py")
+          )
+          assert "TRITON_MLA_SPARSE" in all_sources
+
+          print("Source validation passed")
+          PY
 
       - name: Create build environment
         run: |
+          set -euxo pipefail
           python3.12 -m venv .venv
           . .venv/bin/activate
-          python -m pip install --upgrade pip wheel "setuptools>=77.0.3,<81.0.0"
-          python -m pip install             --index-url https://download.pytorch.org/whl/cu130             --extra-index-url https://pypi.org/simple             torch==2.11.0 triton==3.6.0
-          python -c "import torch, triton; print(torch.__version__); print(torch.version.cuda); print(triton.__version__)"
-          python -m pip install             cmake ninja packaging setuptools-scm setuptools-rust jinja2 regex build protobuf
+
+          python -m pip install --upgrade \
+            pip \
+            wheel \
+            "setuptools>=77.0.3,<81.0.0"
+
+          python -m pip install \
+            --index-url https://download.pytorch.org/whl/cu130 \
+            --extra-index-url https://pypi.org/simple \
+            torch==2.11.0 \
+            triton==3.6.0
+
+          python -c \
+            "import torch, triton; print(torch.__version__); print(torch.version.cuda); print(triton.__version__)"
+
+          python -m pip install \
+            cmake \
+            ninja \
+            packaging \
+            setuptools-scm \
+            setuptools-rust \
+            jinja2 \
+            regex \
+            build \
+            protobuf
 
       - name: Build vLLM wheel for A100
         run: |
+          set -euxo pipefail
           . .venv/bin/activate
+
           python use_existing_torch.py
-          python -m build --wheel --no-isolation --outdir dist
+
+          python -m build \
+            --wheel \
+            --no-isolation \
+            --outdir dist
+
           python -m zipfile -t dist/*.whl
           sha256sum dist/*.whl > dist/SHA256SUMS
+
+      - name: Validate generated wheel
+        run: |
+          set -euxo pipefail
+          . .venv/bin/activate
+
+          WHEEL="$(find dist -maxdepth 1 -name 'vllm-*.whl' | head -1)"
+          test -n "$WHEEL"
+
+          python - "$WHEEL" <<'PY'
+          import sys
+          import zipfile
+
+          wheel = sys.argv[1]
+          member = "vllm/v1/worker/gpu_model_runner.py"
+
+          with zipfile.ZipFile(wheel) as zf:
+              src = zf.read(member).decode("utf-8")
+
+          compile(src, member, "exec")
+
+          head = "\n".join(src.splitlines()[:100])
+
+          assert "self.use_async_scheduling" not in head
+          assert "self.vllm_config.max_concurrent_batches > 1" in src
+          assert src.count(
+              "self.vllm_config.max_concurrent_batches > 1"
+          ) == 1
+
+          assert "from dataclasses import dataclass, replace" in src
+          assert "from functools import reduce" in src
+          assert "import numpy as np" in src
+          assert "\nimport torch\n" in src
+
+          print("Generated wheel validation passed")
+          PY
+
           {
+            echo "source_branch=${GITHUB_REF_NAME}"
+            echo "source_commit=${GITHUB_SHA}"
             echo "vllm_pr_47629_head=bbe2ab4d6cc01a634640d0b502ac67055d114219"
-            echo "vllm_pr_47644_head=79dba7a8d83d69e0ce1b128573a1b61768eeef4e"
+            echo "vllm_pr_47644_patch=max_concurrent_batches_gt_1"
             echo "torch=2.11.0"
             echo "torch_cuda=13.0"
             echo "triton=3.6.0"
@@ -59,7 +180,7 @@ jobs:
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vllm-sm80-cu130-torch211
+          name: vllm-sm80-cu130-torch211-fixed
           path: dist/
           if-no-files-found: error
           retention-days: 14
