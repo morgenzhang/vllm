@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build-wheel:
     name: CUDA 13.0 / Torch 2.11 / SM80
